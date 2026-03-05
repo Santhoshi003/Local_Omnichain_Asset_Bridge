@@ -1,0 +1,29 @@
+{
+  "name": "omniassetmanagement",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "clean": "hardhat clean",
+    "compile": "hardhat compile",
+    "test": "hardhat test tests/unit/bridge.unit.test.js",
+    "test:integration": "node tests/integration.e2e.js",
+    "test:recovery": "node tests/relayer-recovery.test.js",
+    "deploy:chain-a": "hardhat run scripts/deploy-chain-a.js --network chainA",
+    "deploy:chain-b": "hardhat run scripts/deploy-chain-b.js --network chainB",
+    "deploy:all": "npm run deploy:chain-a && npm run deploy:chain-b && node scripts/sync-env.js",
+    "relayer:start": "node relayer/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Local omnichain asset bridge with governance recovery",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "hardhat": "^2.22.17"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^17.3.1",
+    "ethers": "^6.16.0"
+  }
+}

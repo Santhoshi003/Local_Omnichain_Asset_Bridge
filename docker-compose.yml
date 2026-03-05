@@ -1,0 +1,66 @@
+services:
+  chain-a:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command:
+      [
+        "anvil",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8545",
+        "--chain-id",
+        "1111",
+        "--block-time",
+        "1",
+      ]
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD", "cast", "chain-id", "--rpc-url", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  chain-b:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command:
+      [
+        "anvil",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9545",
+        "--chain-id",
+        "2222",
+        "--block-time",
+        "1",
+      ]
+    ports:
+      - "9545:9545"
+    healthcheck:
+      test: ["CMD", "cast", "chain-id", "--rpc-url", "http://localhost:9545"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  relayer:
+    build: ./relayer
+    restart: on-failure
+    environment:
+      - CHAIN_A_RPC_URL=http://chain-a:8545
+      - CHAIN_B_RPC_URL=http://chain-b:9545
+      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY}
+      - CONFIRMATION_DEPTH=${CONFIRMATION_DEPTH:-3}
+      - POLL_INTERVAL_MS=${POLL_INTERVAL_MS:-4000}
+      - DB_PATH=${DB_PATH:-./data/processed_nonces.json}
+      - CHAIN_A_BRIDGE_LOCK=${CHAIN_A_BRIDGE_LOCK}
+      - CHAIN_A_GOV_EMERGENCY=${CHAIN_A_GOV_EMERGENCY}
+      - CHAIN_B_BRIDGE_MINT=${CHAIN_B_BRIDGE_MINT}
+      - CHAIN_B_GOV_VOTING=${CHAIN_B_GOV_VOTING}
+    volumes:
+      - ./relayer_data:/usr/src/app/data
+    depends_on:
+      chain-a:
+        condition: service_healthy
+      chain-b:
+        condition: service_healthy
