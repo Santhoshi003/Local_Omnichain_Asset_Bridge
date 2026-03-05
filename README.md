@@ -1,119 +1,297 @@
 # Local Omnichain Asset Bridge with Governance Recovery
 
-Two-chain local bridge implementation with:
+This project demonstrates a **two-chain local asset bridge system** with governance-based recovery mechanisms.
+It includes smart contracts deployed on two independent chains, a relayer service responsible for event synchronization, and Docker-based orchestration for running the full environment locally.
 
-- Chain A settlement contracts (`VaultToken`, `BridgeLock`, `GovernanceEmergency`)
-- Chain B execution contracts (`WrappedVaultToken`, `BridgeMint`, `GovernanceVoting`)
-- Node.js relayer with persistent processed-nonce tracking and confirmation delay
-- Docker Compose orchestration for `chain-a`, `chain-b`, and `relayer`
-- Unit tests + integration/failure simulation scripts
+## System Overview
 
-## Project Structure
+The bridge architecture consists of the following components:
 
-- `contracts/` Solidity contracts for both chains
-- `scripts/` deployment and environment sync scripts
-- `relayer/` relayer service and Dockerfile
-- `tests/` unit + integration + recovery tests
-- `docker-compose.yml` full stack orchestration
-- `.env.example` required variables template
-- `architecture.md` system diagram
+* **Chain A (Settlement Layer)**
 
-## Requirements
+  * `VaultToken`
+  * `BridgeLock`
+  * `GovernanceEmergency`
 
-- Node.js 20+
-- npm 10+
-- Docker Desktop (for `docker compose` flow)
+* **Chain B (Execution Layer)**
 
-## Quick Start
+  * `WrappedVaultToken`
+  * `BridgeMint`
+  * `GovernanceVoting`
 
-1. Install dependencies:
-   - `npm install`
-2. Create env file:
-   - `Copy-Item .env.example .env` (PowerShell)
-3. Start chains (Docker):
-   - `docker compose up -d chain-a chain-b`
-4. Compile + deploy on both chains:
-   - `npm run compile`
-   - `npm run deploy:all`
-   - This writes deployment files and updates `.env`/`.env.deployments` contract addresses.
-5. Start relayer:
-   - Local: `npm run relayer:start`
-   - Docker: `docker compose up -d relayer`
+* **Relayer Service**
 
-## Full Docker Orchestration
+  * Built using Node.js
+  * Tracks processed nonces persistently
+  * Applies confirmation delays before processing events
 
-After `.env` contains deployed addresses, run:
+* **Docker Infrastructure**
 
-- `docker compose up -d`
+  * Runs Chain A, Chain B, and the relayer using Docker Compose
 
-Services:
+* **Testing Suite**
 
-- `chain-a` on `8545` (Anvil chain ID `1111`)
-- `chain-b` on `9545` (Anvil chain ID `2222`)
-- `relayer` with mounted persistence volume `./relayer_data`
+  * Unit tests
+  * Integration tests
+  * Failure and recovery simulations
 
-## Commands
+---
 
-- Compile: `npm run compile`
-- Unit tests: `npm test`
-- Deploy Chain A: `npm run deploy:chain-a`
-- Deploy Chain B: `npm run deploy:chain-b`
-- Deploy both + sync env: `npm run deploy:all`
-- Integration script: `npm run test:integration`
-- Recovery script: `npm run test:recovery`
+# Project Directory Structure
 
-## Relayer Reliability Design
+```
+contracts/        Solidity contracts for both chains
+scripts/          Deployment and environment configuration scripts
+relayer/          Relayer service implementation + Dockerfile
+tests/            Unit, integration, and recovery tests
+docker-compose.yml  Full environment orchestration
+.env.example      Template for required environment variables
+architecture.md   Architecture diagrams and design explanation
+```
 
-- Persistence in JSON file (`DB_PATH`) with atomic temp-file rename writes
-- Stores processed IDs to block replay processing after restart
-- Stores last scanned blocks for both chains
-- Waits `CONFIRMATION_DEPTH` blocks before acting
-- Retries RPC and transaction submissions (`retry` strategy)
-- On restart, scans historical ranges from last stored blocks to catch missed events
+---
 
-## Core Invariants & Security
+# Prerequisites
 
-- Replay protection on-chain:
-  - `BridgeMint.mintWrapped` rejects reused mint nonce
-  - `BridgeLock.unlock` rejects reused unlock nonce
-- Bridge authorization via `AccessControl` roles (`RELAYER_ROLE`, `GOVERNANCE_ROLE`)
-- Emergency pause path:
-  - `GovernanceVoting` emits `ProposalPassed`
-  - relayer calls `GovernanceEmergency.executeEmergency`
-  - Chain A `BridgeLock` is paused
-- Supply invariant to verify in integration:
-  - `VaultToken.balanceOf(BridgeLock) == WrappedVaultToken.totalSupply()`
+Make sure the following tools are installed:
 
-## Testing
+* **Node.js** version 20 or higher
+* **npm** version 10 or higher
+* **Docker Desktop** for running the multi-container environment
 
-### Unit
+---
 
-- `npm test`
-- Covers:
-  - lock/unlock flow
-  - replay attack prevention (mint + unlock)
-  - burn flow
-  - governance event emission and pause behavior
+# Quick Setup
 
-### Integration
+### 1. Install dependencies
 
-- `npm run test:integration`
-- Covers:
-  - lock -> mint after confirmations
-  - burn -> unlock after confirmations
-  - supply invariant checks before/after burn
-  - governance pass -> bridge pause
+```bash
+npm install
+```
 
-### Relayer Recovery Simulation
+### 2. Create environment configuration
 
-- `npm run test:recovery`
-- Steps:
-  - stop relayer
-  - create lock event while offline
-  - restart relayer
-  - assert missed event is processed
+PowerShell:
 
-## Notes
+```powershell
+Copy-Item .env.example .env
+```
 
-- If Docker daemon is not running, compose commands fail even if `docker compose version` works. Start Docker Desktop first.
-- If running ad-hoc local nodes instead of Docker, ensure chain IDs and RPC URLs match `.env` values.
+### 3. Start local blockchain nodes
+
+```bash
+docker compose up -d chain-a chain-b
+```
+
+### 4. Compile and deploy contracts
+
+```bash
+npm run compile
+npm run deploy:all
+```
+
+Deployment scripts will automatically:
+
+* Deploy contracts on both chains
+* Generate deployment artifacts
+* Update `.env` and `.env.deployments` with contract addresses
+
+### 5. Launch the relayer service
+
+Run locally:
+
+```bash
+npm run relayer:start
+```
+
+Or run using Docker:
+
+```bash
+docker compose up -d relayer
+```
+
+---
+
+# Running the Full Docker Environment
+
+Once contract addresses are stored in `.env`, you can launch the entire system with:
+
+```bash
+docker compose up -d
+```
+
+This will start the following services:
+
+| Service | Port     | Chain ID |
+| ------- | -------- | -------- |
+| chain-a | 8545     | 1111     |
+| chain-b | 9545     | 2222     |
+| relayer | internal | —        |
+
+The relayer also stores persistent data in:
+
+```
+./relayer_data
+```
+
+---
+
+# Available Commands
+
+Compile contracts
+
+```
+npm run compile
+```
+
+Run unit tests
+
+```
+npm test
+```
+
+Deploy contracts to Chain A
+
+```
+npm run deploy:chain-a
+```
+
+Deploy contracts to Chain B
+
+```
+npm run deploy:chain-b
+```
+
+Deploy to both chains and update environment variables
+
+```
+npm run deploy:all
+```
+
+Run integration test scenario
+
+```
+npm run test:integration
+```
+
+Simulate relayer recovery scenario
+
+```
+npm run test:recovery
+```
+
+---
+
+# Relayer Reliability Design
+
+The relayer is designed to maintain stability and avoid replay attacks.
+
+Key mechanisms include:
+
+* Persistent storage of processed event IDs
+* JSON-based database with atomic write operations
+* Tracking of the last scanned block on each chain
+* Waiting for a configurable number of confirmation blocks
+* Automatic retry logic for RPC requests and transactions
+* Recovery scanning after relayer restarts to process missed events
+
+---
+
+# Security and Core Invariants
+
+The bridge enforces several critical safety guarantees.
+
+### Replay Protection
+
+* `BridgeMint.mintWrapped` rejects duplicate mint nonces
+* `BridgeLock.unlock` rejects reused unlock nonces
+
+### Access Control
+
+Smart contracts use role-based permissions:
+
+* `RELAYER_ROLE`
+* `GOVERNANCE_ROLE`
+
+### Emergency Governance
+
+If governance approves a proposal:
+
+1. `GovernanceVoting` emits a `ProposalPassed` event
+2. The relayer triggers `GovernanceEmergency.executeEmergency`
+3. `BridgeLock` on Chain A is paused
+
+### Supply Invariant
+
+At all times the system must satisfy:
+
+```
+VaultToken.balanceOf(BridgeLock)
+    ==
+WrappedVaultToken.totalSupply()
+```
+
+This invariant is verified during integration testing.
+
+---
+
+# Testing
+
+## Unit Tests
+
+Run:
+
+```
+npm test
+```
+
+Unit tests cover:
+
+* Token locking and unlocking logic
+* Replay attack protection
+* Burn and mint processes
+* Governance event behavior
+
+---
+
+## Integration Tests
+
+Run:
+
+```
+npm run test:integration
+```
+
+Integration scenarios include:
+
+* Lock → mint flow after confirmation delay
+* Burn → unlock flow
+* Supply invariant verification
+* Governance proposal execution and bridge pause
+
+---
+
+## Relayer Recovery Simulation
+
+Run:
+
+```
+npm run test:recovery
+```
+
+Scenario:
+
+1. Stop the relayer
+2. Generate a lock event while offline
+3. Restart the relayer
+4. Verify that the missed event is processed correctly
+
+---
+
+# Notes
+
+* Docker commands will fail if the **Docker daemon is not running**. Make sure Docker Desktop is started.
+* If using manually started nodes instead of Docker, ensure that:
+
+  * RPC URLs match `.env`
+  * Chain IDs match the expected values.
